@@ -1,26 +1,20 @@
 // Client + mock fixtures for the "twilight" service — a Next.js service-zone
-// finder (address -> which WM market/service polygon contains it). It's a
-// separate deployment from the WM REST API and takes no WM auth headers.
-//
-// Base URL comes from TWILIGHT_BASE_URL (e.g. the Vercel deployment);
-// defaults to local dev. Mock mode reuses the WM_MOCK flag.
-export function twilightBase(): string {
-  return process.env.TWILIGHT_BASE_URL ?? "http://localhost:3000";
-}
-
+// finder (address -> which WM market/service polygon contains it). Separate
+// deployment from the WM REST API; takes no WM auth headers.
 export async function twilightRequest(
+  baseUrl: string,
   method: "GET" | "POST",
   path: string,
   opts: { query?: Record<string, string | number | undefined>; body?: unknown } = {},
 ): Promise<{ status: number; body: unknown }> {
-  const url = new URL(twilightBase() + path);
+  const url = new URL(baseUrl + path);
   for (const [k, v] of Object.entries(opts.query ?? {})) {
     if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
   }
   const headers: Record<string, string> = { Accept: "application/json" };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
 
-  const res = await fetch(url, {
+  const res = await fetch(url.toString(), {
     method,
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
@@ -72,6 +66,7 @@ export const TWILIGHT_MOCKS = {
           ],
         ],
       },
+      coordinateSystem: "WGS84",
     },
   }),
   health: () => ({

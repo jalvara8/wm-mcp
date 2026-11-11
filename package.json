@@ -1,22 +1,28 @@
 {
   "name": "wm-mcp",
-  "version": "0.1.0",
-  "description": "Read-only MCP proxy over the WM REST API",
+  "version": "0.2.0",
+  "description": "Remote MCP server (Cloudflare Worker) proxying the WM REST API + twilight service-zone finder",
+  "private": true,
   "type": "module",
-  "bin": { "wm-mcp": "dist/index.js" },
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsc --watch",
-    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "inspect": "npx @modelcontextprotocol/inspector@latest",
+    "cf-typegen": "wrangler types"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
-    "zod": "^3.24.0"
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "agents": "^0.33.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.6.0"
+    "@cloudflare/workers-types": "^5.20251101.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.160.0"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

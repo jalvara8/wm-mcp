@@ -1,88 +1,74 @@
 # wm-mcp
 
-A read-only MCP server that proxies to the WM REST API. It's a starting point for the modernization work: the tools are wired up and the auth plumbing is in place. Real credentials and verified response schemas still need to be added.
+A **remote MCP server** running on a Cloudflare Worker. It exposes the WM REST API and the twilight service-zone finder as MCP tools over Streamable HTTP, so it can be added to Claude (or any MCP client) as a custom connector.
 
-## Where the endpoints came from
+- Endpoint: `https://<worker>.<your-subdomain>.workers.dev/mcp`
+- Health: `GET /` → `{ name, status, endpoint, mock }`
+- Runtime: Cloudflare Worker + Durable Object (`McpAgent`)
 
-`src/catalog.ts` lists 211 endpoints. They were reverse-engineered from the My WM web app bundle (`www.wm.com/static/index-*.js`), so they reflect what the live site calls. This is **not** an official contract. Check paths, methods and response shapes against WM's internal API spec (OpenAPI, Swagger or Postman) before relying on them.
+## Tools (18, all read-only)
 
-Hosts the live app uses (prod):
+**WM** — `wm_health_check`, `wm_get_balance`, `wm_get_invoices`, `wm_get_invoice_charge_details`, `wm_get_payment_history`, `wm_get_pending_charges`, `wm_list_services`, `wm_get_pickup_info`, `wm_get_service_history`, `wm_get_holidays`, `wm_get_account_alerts`, `wm_get_facility_contact`, `wm_list_endpoints`, `wm_get_endpoint`.
 
-| Base | Host | Notes |
+**Twilight** (service-zone finder) — `twilight_find_zone`, `twilight_get_zone_geometry`, `twilight_geocode`, `twilight_health`.
+
+The WM endpoint catalog (211 entries) is in `src/catalog.ts`. These paths were reverse-engineered from the My WM web app; verify against WM's internal API spec before relying on them. No write tools yet.
+
+## Configuration
+
+Non-secret values live in `wrangler.jsonc` `vars`; secrets are set with `wrangler secret put`.
+
+| Name | Kind | Purpose |
 | --- | --- | --- |
-| EBIZ | `rest-api.wm.com` | Main customer API: account, billing, services, pickups, payments |
-| ESB | `webapi.wm.com/v1` | Customers, contacts, locations, products, orders, token |
-| MULESOFT | `cloudwebapi.wm.com` | Communication preferences, contacts, callback |
-| RO_LEADS | `api-graph-leads.wm.com` | Roll-off leads (GraphQL) |
+| `WM_MOCK` | var | `1` = sample payloads, no live calls, no creds needed (default) |
+| `WM_ENV` | var | `test` (default) or `prod` — picks WM base hosts |
+| `TWILIGHT_BASE_URL` | var | twilight deployment base URL |
+| `WM_CLIENT_ID` | secret | WM API client id (from apiaccess@wm.com) |
+| `WM_BEARER_TOKEN` | secret | WM API JWT |
+| `MCP_BEARER_TOKEN` | secret | optional — if set, callers must send `Authorization: Bearer <token>` |
+| `WM_BASE_*` | var | optional per-host overrides (EBIZ/ESB/MULESOFT/RO_LEADS) |
 
-The public docs at `api.wm.com` describe `apitest.wm.com/v1` (test) and `api.wm.com/v1` (prod). The only test endpoint they confirm is `/helloworld`. The test hosts for EBIZ, MuleSoft and RO_LEADS in `wmClient.ts` are placeholders. Set the real ones with `WM_BASE_*` env vars once you have them.
+Ships in **mock mode** (`WM_MOCK: "1"`) so it works end-to-end with no credentials. The twilight tools call the live `TWILIGHT_BASE_URL` when mock is off.
 
-## Auth
-
-Every call sends these headers, as the WM docs specify:
-
-- `Authorization: Bearer <JWT>`
-- `ClientId: <id>`
-- `Request-Tracking-Id: <uuid>`
-
-Request a token and ClientId for this project through **apiaccess@wm.com**. Don't reuse the client IDs or tokens embedded in the public web app. Those belong to WM's own front end, and this server should run under its own credential so it can be scoped, monitored and revoked.
-
-## Setup
+## Local development
 
 ```bash
 npm install
-cp .env.example .env   # fill in WM_BEARER_TOKEN, WM_CLIENT_ID
-npm run build
-set -a; . ./.env; set +a
-npm run inspect        # opens MCP Inspector; run wm_health_check first
+cp .dev.vars.example .dev.vars   # fill in only if testing live WM calls
+npm run dev                      # wrangler dev on http://localhost:8787
+# in another shell:
+npm run inspect                  # MCP Inspector → connect Streamable HTTP to http://localhost:8787/mcp
 ```
 
-### Mock mode (no credentials)
+Quick check without the inspector:
+```bash
+curl http://localhost:8787/                      # health
+curl -X POST http://localhost:8787/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}'
+```
 
-Set `WM_MOCK=1` to run with sample payloads and no live calls — useful for building the UI before a real token exists. Every read tool returns an illustrative shape from `src/fixtures.ts`:
+## Deploy to Cloudflare
 
 ```bash
-WM_MOCK=1 npm run inspect
+npx wrangler login              # one-time, in a browser
+npm run deploy                  # wrangler deploy
 ```
 
-The fixtures are made-up shapes, not real responses or real customer data. Replace them with verified schemas once the live API is reachable. Claude Desktop / Claude Code: add `"WM_MOCK": "1"` to the server's `env` block.
-
-Claude Desktop / Claude Code config:
-
-```json
-{
-  "mcpServers": {
-    "wm": {
-      "command": "node",
-      "args": ["/path/to/wm-mcp/dist/index.js"],
-      "env": { "WM_BEARER_TOKEN": "...", "WM_CLIENT_ID": "...", "WM_ENV": "test" }
-    }
-  }
-}
+To go beyond mock mode, set secrets after the first deploy:
+```bash
+wrangler secret put WM_CLIENT_ID
+wrangler secret put WM_BEARER_TOKEN
+# then flip WM_MOCK to "0" in wrangler.jsonc (or `wrangler secret put` an override) and redeploy
 ```
 
-## Tools (all read-only)
+Add to Claude as a custom connector using the deployed URL with `/mcp` appended.
 
-- `wm_health_check`: calls `/helloworld`
-- `wm_get_balance`, `wm_get_invoices`, `wm_get_invoice_charge_details`, `wm_get_payment_history`, `wm_get_pending_charges`
-- `wm_list_services`, `wm_get_pickup_info`, `wm_get_service_history`, `wm_get_holidays`, `wm_get_account_alerts`, `wm_get_facility_contact`
-- `wm_list_endpoints`: searches the catalog
-- `wm_get_endpoint`: sends a GET to any catalog endpoint by name
+## Security
 
-### Twilight tools (service-zone finder)
+The endpoint is **unauthenticated by default** — fine for mock mode, not for live customer data. Options before going live:
+- Set `MCP_BEARER_TOKEN` (simple shared-secret lock), or
+- Front it with OAuth via [`@cloudflare/workers-oauth-provider`](https://developers.cloudflare.com/agents/api-reference/securing-mcp-servers/) (the production path; Claude's connector supports OAuth).
 
-Twilight is a separate service (set `TWILIGHT_BASE_URL`) that maps an address to the WM service polygon/zone that contains it.
-
-- `twilight_find_zone`: address → zone (gis id, zone name, market area, facility)
-- `twilight_get_zone_geometry`: polygon geometry (WGS84) for a gis id + market area
-- `twilight_geocode`: geocode an address to coordinates
-- `twilight_health`: twilight database + geocoding health
-
-There are no write tools yet (payments, pickup scheduling, service changes). Add them deliberately, with confirmation prompts, once the read path works against the test environment.
-
-## Next steps
-
-1. Get a test ClientId and token, then get `wm_health_check` returning 200.
-2. Get the internal API spec, then replace `JSON.stringify(body)` with typed, trimmed responses.
-3. Confirm the test hosts for each base.
-4. Decide on per-user auth (Okta / `ssologin.wm.com`) versus a service credential.
+Decide which before pointing it at real WM credentials.

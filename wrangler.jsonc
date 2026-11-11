@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wm-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Durable Object that backs the McpAgent session state
+  "durable_objects": {
+    "bindings": [{ "name": "WM_MCP", "class_name": "WmMCP" }]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["WmMCP"] }
+  ],
+
+  // Non-secret config. Secrets (WM_CLIENT_ID, WM_BEARER_TOKEN, MCP_BEARER_TOKEN)
+  // are set with `wrangler secret put <NAME>`, never committed.
+  "vars": {
+    "WM_MOCK": "1",
+    "WM_ENV": "test",
+    "TWILIGHT_BASE_URL": "https://twilight-ten.vercel.app"
+  }
+}
