@@ -79,25 +79,25 @@ export function registerTools(server: McpServer, cfg: AppConfig): void {
   // --- Twilight: service-zone finder ---------------------------------------
   server.registerTool("twilight_find_zone", { description: "Find which WM service zone/polygon contains an address (twilight service).", inputSchema: { address: z.string().min(5), marketArea: z.number().int().min(0).max(26).optional() } },
     async ({ address, marketArea }) => {
-      if (cfg.mock) return toResult({ status: 200, body: TWILIGHT_MOCKS.findZone(address) });
+      if (cfg.twilightMock) return toResult({ status: 200, body: TWILIGHT_MOCKS.findZone(address) });
       return toResult(await twilightRequest(cfg.twilightBase, "POST", "/api/geocode-and-query", { body: { address, marketArea } }));
     });
 
   server.registerTool("twilight_get_zone_geometry", { description: "Fetch polygon geometry (WGS84) for a zone's GIS id in a market area.", inputSchema: { gisId: z.string(), marketArea: z.number().int().min(0).max(26) } },
     async ({ gisId, marketArea }) => {
-      if (cfg.mock) return toResult({ status: 200, body: TWILIGHT_MOCKS.geometry(gisId, marketArea) });
+      if (cfg.twilightMock) return toResult({ status: 200, body: TWILIGHT_MOCKS.geometry(gisId, marketArea) });
       return toResult(await twilightRequest(cfg.twilightBase, "GET", `/api/geometry/${encodeURIComponent(gisId)}`, { query: { marketArea } }));
     });
 
   server.registerTool("twilight_geocode", { description: "Geocode an address via twilight (Mapbox), returning coordinates.", inputSchema: { address: z.string().min(5) } },
     async ({ address }) => {
-      if (cfg.mock) return toResult({ status: 200, body: TWILIGHT_MOCKS.geocode(address) });
+      if (cfg.twilightMock) return toResult({ status: 200, body: TWILIGHT_MOCKS.geocode(address) });
       return toResult(await twilightRequest(cfg.twilightBase, "GET", "/api/test-geocoding", { query: { address } }));
     });
 
   server.registerTool("twilight_health", { description: "Check twilight's database and geocoding health.", inputSchema: {} },
     async () => {
-      if (cfg.mock) return toResult({ status: 200, body: TWILIGHT_MOCKS.health() });
+      if (cfg.twilightMock) return toResult({ status: 200, body: TWILIGHT_MOCKS.health() });
       return toResult(await twilightRequest(cfg.twilightBase, "GET", "/api/health"));
     });
 

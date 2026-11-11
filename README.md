@@ -23,12 +23,13 @@ Non-secret values live in `wrangler.jsonc` `vars`; secrets are set with `wrangle
 | `WM_MOCK` | var | `1` = sample payloads, no live calls, no creds needed (default) |
 | `WM_ENV` | var | `test` (default) or `prod` — picks WM base hosts |
 | `TWILIGHT_BASE_URL` | var | twilight deployment base URL |
+| `TWILIGHT_MOCK` | var | `1` = twilight sample payloads. Independent of `WM_MOCK`; defaults to **live** (twilight needs no WM creds) |
 | `WM_CLIENT_ID` | secret | WM API client id (from apiaccess@wm.com) |
 | `WM_BEARER_TOKEN` | secret | WM API JWT |
 | `MCP_BEARER_TOKEN` | secret | optional — if set, callers must send `Authorization: Bearer <token>` |
 | `WM_BASE_*` | var | optional per-host overrides (EBIZ/ESB/MULESOFT/RO_LEADS) |
 
-Ships in **mock mode** (`WM_MOCK: "1"`) so it works end-to-end with no credentials. The twilight tools call the live `TWILIGHT_BASE_URL` when mock is off.
+Ships in **mock mode** (`WM_MOCK: "1"`) so it works end-to-end with no credentials. The twilight tools call the live `TWILIGHT_BASE_URL` unless `TWILIGHT_MOCK` is set, even while `WM_MOCK` is on.
 
 ## Local development
 
