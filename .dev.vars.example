@@ -1,0 +1,9 @@
+# Local dev secrets for `wrangler dev` (copy to .dev.vars; never commit .dev.vars).
+# In production set these with: wrangler secret put <NAME>
+
+# WM API credentials (issued by apiaccess@wm.com) — omit while WM_MOCK=1
+WM_CLIENT_ID=
+WM_BEARER_TOKEN=
+
+# Optional: require this bearer token on /mcp (simple lock, not full OAuth)
+MCP_BEARER_TOKEN=
