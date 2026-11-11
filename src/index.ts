@@ -7,6 +7,7 @@ import { z } from "zod";
 import { CATALOG, type WmBase } from "./catalog.js";
 import { WmClient, loadConfig } from "./wmClient.js";
 import { mockFor } from "./fixtures.js";
+import { TWILIGHT_MOCKS, twilightRequest } from "./twilight.js";
 
 const config = loadConfig();
 const client = new WmClient(config);
@@ -95,6 +96,34 @@ server.tool("wm_get_account_alerts", "Get service alerts for a customer account.
 server.tool("wm_get_facility_contact", "Get the servicing facility's contact info for an account.",
   { customerId: z.string(), locale: z.string().default("en_US") },
   async (a) => get("CONTACT_INFO_GUEST_BY_CUSTOMER_ID", a));
+
+// --- Twilight: service-zone finder ------------------------------------------
+// Separate service (TWILIGHT_BASE_URL); address -> which WM service polygon.
+server.tool("twilight_find_zone", "Find which WM service zone/polygon contains an address (twilight service).",
+  { address: z.string().min(5), marketArea: z.number().int().min(0).max(26).optional() },
+  async ({ address, marketArea }) => {
+    if (config.mock) return result({ status: 200, body: TWILIGHT_MOCKS.findZone(address) });
+    return result(await twilightRequest("POST", "/api/geocode-and-query", { body: { address, marketArea } }));
+  });
+
+server.tool("twilight_get_zone_geometry", "Fetch polygon geometry (WGS84) for a zone's GIS id in a market area.",
+  { gisId: z.string(), marketArea: z.number().int().min(0).max(26) },
+  async ({ gisId, marketArea }) => {
+    if (config.mock) return result({ status: 200, body: TWILIGHT_MOCKS.geometry(gisId, marketArea) });
+    return result(await twilightRequest("GET", `/api/geometry/${encodeURIComponent(gisId)}`, { query: { marketArea } }));
+  });
+
+server.tool("twilight_geocode", "Geocode an address via twilight (Mapbox), returning coordinates.",
+  { address: z.string().min(5) },
+  async ({ address }) => {
+    if (config.mock) return result({ status: 200, body: TWILIGHT_MOCKS.geocode(address) });
+    return result(await twilightRequest("GET", "/api/test-geocoding", { query: { address } }));
+  });
+
+server.tool("twilight_health", "Check twilight's database and geocoding health.", {}, async () => {
+  if (config.mock) return result({ status: 200, body: TWILIGHT_MOCKS.health() });
+  return result(await twilightRequest("GET", "/api/health"));
+});
 
 // --- Catalog discovery + escape hatch ---------------------------------------
 server.tool("wm_list_endpoints", "List known WM endpoints (name, base, path). Optional substring filter.",

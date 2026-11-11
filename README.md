@@ -69,6 +69,15 @@ Claude Desktop / Claude Code config:
 - `wm_list_endpoints`: searches the catalog
 - `wm_get_endpoint`: sends a GET to any catalog endpoint by name
 
+### Twilight tools (service-zone finder)
+
+Twilight is a separate service (set `TWILIGHT_BASE_URL`) that maps an address to the WM service polygon/zone that contains it.
+
+- `twilight_find_zone`: address → zone (gis id, zone name, market area, facility)
+- `twilight_get_zone_geometry`: polygon geometry (WGS84) for a gis id + market area
+- `twilight_geocode`: geocode an address to coordinates
+- `twilight_health`: twilight database + geocoding health
+
 There are no write tools yet (payments, pickup scheduling, service changes). Add them deliberately, with confirmation prompts, once the read path works against the test environment.
 
 ## Next steps
