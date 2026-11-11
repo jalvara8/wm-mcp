@@ -18,6 +18,9 @@ export interface Env {
 
   // Twilight service-zone finder base URL
   TWILIGHT_BASE_URL?: string;
+  // "1" | "true" | "yes" to serve twilight sample payloads. Independent of
+  // WM_MOCK: twilight needs no WM credentials, so it defaults to live.
+  TWILIGHT_MOCK?: string;
 
   // Optional per-base host overrides
   WM_BASE_EBIZ?: string;
@@ -31,6 +34,7 @@ export interface Env {
 
 export interface AppConfig {
   mock: boolean;
+  twilightMock: boolean;
   wm: {
     bearerToken: string;
     clientId: string;
@@ -54,7 +58,8 @@ const PROD_BASES: Record<WmBase, string> = {
 };
 
 export function buildConfig(env: Env): AppConfig {
-  const mock = ["1", "true", "yes"].includes((env.WM_MOCK ?? "").toLowerCase());
+  const truthy = (v?: string) => ["1", "true", "yes"].includes((v ?? "").toLowerCase());
+  const mock = truthy(env.WM_MOCK);
   const bases = (env.WM_ENV ?? "test").toLowerCase() === "prod" ? { ...PROD_BASES } : { ...TEST_BASES };
   if (env.WM_BASE_EBIZ) bases.EBIZ = env.WM_BASE_EBIZ;
   if (env.WM_BASE_ESB) bases.ESB = env.WM_BASE_ESB;
@@ -63,6 +68,7 @@ export function buildConfig(env: Env): AppConfig {
 
   return {
     mock,
+    twilightMock: truthy(env.TWILIGHT_MOCK),
     wm: {
       bearerToken: env.WM_BEARER_TOKEN ?? "",
       clientId: env.WM_CLIENT_ID ?? "",
